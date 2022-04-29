@@ -1,0 +1,614 @@
+---
+title: "Week 12 - Tutorial"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, error = TRUE, warning = TRUE)
+
+library(ottr)
+library(testthat)
+library(ggplot2)
+library(pheatmap)
+```
+**Run the above block to load required packages**
+
+---
+
+At the end of this tutorial you should be able to:
+
+* Convert a count matrix to a `DGEList` object in R
+* Filter and normalize RNA-seq data for differential expression testing
+* Perform basic differential expression tests and interpret their results
+* Visualize the results of differential expression testing
+
+---
+
+## 12.1.1 EdgeR and DGEList Objects
+
+---
+
+In this tutorial, we will be comparing RNA-seq samples from primary tumour tissue and healthy tissue adjacent to the tumour, looking for genes that are differentially expressed between them. 
+
+We are going to continue our analysis of the previous week, looking at specific genes that are overly expressed in human esophageal squamous cell carcinoma (ESCC). The RNA-seq reads representing these genes cover the entire transcriptome for ESCC tumours from three patients. The samples are paired tumour and adjacent tissue, meaning that each individual has had their tumour and the healthy tissue adjacent to their tumour sequenced. This experimental design and the data that were used are further described in the following paper: 
+
+Ma, S. et al. (2012) *Identification of PTK6, via RNA Sequencing Analysis, as a Suppressor of Esophageal Squamous Cell Carcinoma*, Gastroenterology, 143 (3) 675-686.
+
+As of right now, you have aligned your RNA-seq data to the reference genome, counted the reads, and now have a count matrix called `countMatrix.tsv`. Read in this count matrix so that the gene names are row names and the sample names are column names. Save this to a variable named `count_matrix`.
+
+Note: `countMatrix.tsv` is located in the directory `/home/jovyan/Week.12/12.2.Differential.Expression.Testing/Tutorial.12.2`.
+
+```{r}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Tutorial.W12.1.1.a.R")
+```
+**Check your answer by running the above block** 
+
+In order to analyze this matrix, you will need to use the `edgeR` package. Load this package below.
+
+```{r}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Tutorial.W12.1.1.b.R")
+```
+**Check your answer by running the above block** 
+
+Find the dimensions of your count matrix and save them to a variable named "count_matrix_dimensions".
+
+```{r}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Tutorial.W12.1.1.c.R")
+```
+**Check your answer by running the above block** 
+
+Use the `head()` function to take a look at the first six lines of your count matrix.
+
+```{r}
+# Write and execute your code here
+
+```
+
+Read the count matrix as a DGEList object named "dge_matrix". Use the `group` argument to group samples into two groups: `normal` and `tumour`. Remember that the order in which you assign these groups needs to match the order of the columns that appear in the count matrix.
+
+```{r}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Tutorial.W12.1.2.a.R")
+```
+**Check your answer by running the above block** 
+
+As we did in supplement 12.1, rename the rows of `dge_matrix$samples` so that the sample names no longer have an X in front of them.
+
+```{r}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Tutorial.W12.1.2.b.R")
+```
+
+Take a look at the row of counts from the `MAL` gene. This gene has been found to be downregulated in esophageal cancer (Mimori et al. 2003), and it would be interesting to take a peak at what the counts are. Accessing counts like this is a great way to check and see if your downstream analysis is making sense. Save the row of counts for the MAL gene to a variable named "MAL_counts".
+
+```{r}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Tutorial.W12.1.2.c.R")
+```
+**Check your answer by running the above block** 
+
+---
+
+## 12.1.3 Filtering Genes
+
+---
+
+We currently have a very large number of genes, which will really reduce the power of our differential testing. Determine the number of rows in the counts slot in `dge_matrix` to determine our current total number of genes and save it to a variable named "num_genes".
+
+```{r}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Tutorial.W12.1.3.a.R")
+```
+**Check your answer by running the above block** 
+
+Calculate the counts per million (CPM) for each gene to reduce the effect of library size using the appropriate function provided by the `edgeR` library. Save this value to a variable named "counts_per_million".
+
+```{r}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Tutorial.W12.1.3.b.R")
+```
+**Check your answer by running the above block** 
+
+As in the lecture supplement, let's keep all genes that have CPM values greater than 1 across at least two samples.
+
+First, create a matrix of `TRUE/FALSE` values that where CPM is greater than 1. Save this to a variable named "count_check".
+
+```{r}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Tutorial.W12.1.3.c.R")
+```
+**Check your answer by running the above block** 
+
+Now we want to see where `TRUE` values occur across at least two samples. This will tell us which gene rows to keep, and which we want to get rid of. We can do this by summing the `TRUE` values across rows using the `rowSums()` function. This can be nested within the `which()` function to provide the row indices of which genes should be kept. Create a vector of these indices and save it to a variable named "keep_rows".
+
+```{r}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Tutorial.W12.1.3.d.R")
+```
+**Check your answer by running the above block** 
+
+How many genes are we going to keep? Use the `length()` function on your `keep_rows` variable and save the result to a variable named "kept_genes".
+
+```{r}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Tutorial.W12.1.3.e.R")
+```
+**Check your answer by running the above block** 
+
+How does this differ from the original number of genes? You can determine this by comparing the number of rows in your `DGEList` object to the length of your `keep_rows` vector. Calculate the difference and save it to a variable named "gene_difference".
+
+```{r}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Tutorial.W12.1.3.f.R")
+```
+**Check your answer by running the above block** 
+
+Use the `keep_rows` vector to index the rows of your `dge_matrix` variable, so that you are only keeping these genes. Note that you are indexing the entire `DGEList` object, not just isolating the raw counts within that object and indexing those. Save this to a variable named "dge_matrix_cpm".
+
+```{r}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Tutorial.W12.1.3.g.R")
+```
+**Check your answer by running the above block** 
+
+---
+
+## 12.1.4 Normalization of Gene Expression
+
+---
+
+Perform normalization on your CPM-filtered object using the `calcNormFactors()` function and save the output to a variable named "normalized_dge".
+
+```{r}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Tutorial.W12.1.4.a.R")
+```
+**Check your answer by running the above block** 
+
+Use the `head()` function to take a look at the first six values of the `norm.factors` slot in `normalized_dge`.
+
+```{r}
+# Write and execute your code here
+
+```
+
+Use the `plotMDS()` function to visualize the similarity between the samples in your `normalized_dge` object and save the output to a variable named "plotted_sample_similarities". Samples that are more similar to each other in terms of their overall gene expression will group together. Distances on the plot approximate the typical log2 fold changes between the samples. All default arguments are okay; you only need to specify your `DGEList` object.
+
+```{r}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Tutorial.W12.1.4.b.R")
+```
+**Check your answer by running the above block** 
+
+---
+
+## 12.2.2 Calculating Differentially Expressed Genes
+
+---
+
+Estimate the dispersion on your normalized `DGEList` object `normalized_dge` using the `estimateDisp()` function, overwriting your `normalized_dge` variable (i.e., reuse the variable name `normalized_dge`).
+
+```{r}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Tutorial.W12.2.2.a.R")
+```
+**Check your answer by running the above block** 
+
+Visualize the different dispersion models of `normalized_dge` using the function `plotBCV()` and save the results to a variable named "dispersion_visual". This shows how different dispersion models (Tagwise, Common, and Trend) vary across the average counts-per-million for each gene. Do genes with higher CPM values tend to be more variable? You may be able to tell by looking at this plot.
+
+Note: Unlike the plots we've worked with before, this type of plot cannot be saved to a variable. We can, however, save a record of the last image plotted to a variable by using the `recordPlot()` function. To test your results with otter grader for this question, write your code for generating a plot with `plotBCV()` *above* the line `dispersion_visual <- recordPlot()` in the code block below, then run the *entire* code block (not line-by-line) before checking your answer in the otter grader block.
+
+```{r}
+# Write and execute your code here
+
+dispersion_visual <- recordPlot() # Do not modify this line
+```
+
+```{r}
+. = ottr::check("tests/Tutorial.W12.2.2.b.R")
+```
+**Check your answer by running the above block** 
+
+The exact test looks for differences in mean gene expression between two groups of samples. Perform differential gene expression testing on `normalized_dge` using the `exactTest()` function and save the results to a variable named "et_results". Use the `pair` argument to specify your comparison of normal VS tumour tissue *in this order*. Remember that this argument takes a vector of strings as input.
+
+```{r}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Tutorial.W12.2.2.c.R")
+```
+**Check your answer by running the above block** 
+
+Find the top differentially expressed genes using the `topTags()` function on `et_results` and save the results to a variable named "tags_et". Use the `n` argument to specify keeping the top 100 genes.
+
+```{r}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Tutorial.W12.2.2.d.R")
+```
+**Check your answer by running the above block** 
+
+The way we've set up our analysis, the genes with positive `logFC` values should indicate that this gene is overexpressed in tumour samples. Let's confirm this by looking at the first row of our `tags_et` object. Save this first row to a variable named "first_tags".
+
+```{r}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Tutorial.W12.2.2.e.R")
+```
+**Check your answer by running the above block** 
+
+Notice that the logFC value is negative. We therefore expect the raw counts to be higher in normal tissue (i.e. underexpressed in tumour samples). Get the row name of `first_tags` and use this value to print the counts for this gene in `normalized_dge`. Save your results to a variable named "first_tags_counts".
+
+```{r}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Tutorial.W12.2.2.f.R")
+```
+**Check your answer by running the above block** 
+
+Of all 100 genes in `tags_et`, which gene(s) has the lowest FDR value? Get the gene name(s) using logicals and indexing and save your results to a variable named "most_significant_genes".
+Hint: use a combination of `which()` and `min()`.
+
+```{r}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Tutorial.W12.2.2.g.R")
+```
+**Check your answer by running the above block** 
+
+Of all 100 genes in `tags_et`, which gene(s) has the highest logFC value in terms of absolute values (i.e. disregarding the positive or negative sign)? Get the gene name(s) using logicals and indexing and save your results to a variable named "greatest_expression_difference". 
+Hint: use the absolute value function `abs()`.
+
+```{r}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Tutorial.W12.2.2.h.R")
+```
+**Check your answer by running the above block** 
+
+What is the highest FDR value in `tags_et`? Save your result to a variable named "highest_fdr".
+
+```{r}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Tutorial.W12.2.2.i.R")
+```
+**Check your answer by running the above block** 
+
+Now let's find all of our significantly differentially expressed genes using the `decideTestsDGE()` function on our exact test results (NOT the top tags result). Use all default arguments and save the result to a variable named "et_dge".
+
+```{r}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Tutorial.W12.2.2.j.R")
+```
+**Check your answer by running the above block** 
+
+How many genes are upregulated in tumour samples? How many are downregulated? We can figure this out by using the `summary()` function on `et_dge`. Save your results to a variable named "summary_of_differences".
+
+```{r}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Tutorial.W12.2.2.k.R")
+```
+**Check your answer by running the above block** 
+
+Isolate the names of all differentially expressed genes. This can be done by using the `as.logical()` function to convert `et_dge` to `TRUE/FALSE` values and using this result to index the row names of `et_results`. Save these differentially expressed genes to a variable named "et_dge_names".
+
+```{r}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Tutorial.W12.2.2.l.R")
+```
+**Check your answer by running the above block** 
+
+---
+
+## 12.2.3 Visualization: Plot Smears & Volcano Plots
+
+---
+
+Plot the log-fold changes of all genes on a scatter plot using the `plotSmear()` function. Your object should be your exact test results, and the `de.tags` argument should be your vector of DE gene names. This makes all DE genes appear red on the plot.
+
+Note: Similar to the BCV plot earlier, this type of plot cannot be saved to a variable. We can, however, save a record of the last image plotted to a variable by using the `recordPlot()` function. To test your results with otter grader for this question, write your code for generating a plot with `plotSmear()` *above* the line `plotsmear_dge <- recordPlot()` in the code block below, then run the *entire* code block (not line-by-line) before checking your answer in the otter grader block.
+
+```{r}
+# Write and execute your code here
+
+plotsmear_dge <- recordPlot() # Do not modify this line
+```
+
+```{r}
+. = ottr::check("tests/Tutorial.W12.2.3.a.R")
+```
+**Check your answer by running the above block** 
+
+Instead of highlighting all of our DE genes in red, let's only look at our top tags now. Use the row names from `tags_et` for the `de.tags` argument this time. This will highlight our top 100 differentially expressed genes instead of the entire number which you calculated earlier.
+
+Once again, to test your results with otter grader for this question, write your code for generating a plot with `plotSmear()` *above* the line `plotsmear_tags <- recordPlot()` in the code block below, then run the *entire* code block (not line-by-line) before checking your answer in the otter grader block.
+
+```{r}
+# Write and execute your code here
+
+plotsmear_tags <- recordPlot() # Do not modify this line
+```
+
+```{r}
+. = ottr::check("tests/Tutorial.W12.2.3.b.R")
+```
+**Check your answer by running the above block** 
+
+Create a data frame that can be used to generate a volcano plot from `et_results`. Use the `cbind()` function to combine the `logFC` column and a -log10 transformation of the `PValue` column. Nest these results within the `as.data.frame()` function to make sure the format is correct. Save your data frame to a variable named "volcano_data". 
+Hint: use the `log10()` function.
+
+```{r}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Tutorial.W12.2.3.c.R")
+```
+**Check your answer by running the above block** 
+
+Change the column names of `volcano_data` to `logFC` and `negLogPval`, in that order.
+
+```{r}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Tutorial.W12.2.3.d.R")
+```
+**Check your answer by running the above block** 
+
+Change the row names of `volcano_data` to the same row names as the table in `et_results`.
+
+```{r}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Tutorial.W12.2.3.e.R")
+```
+**Check your answer by running the above block** 
+
+Use the `head()` function to look at `volcano_data` to make sure that this looks as you'd expect. You should see two columns of values, with gene names as the row names. 
+
+```{r}
+# Write and execute your code here
+
+```
+
+The `ggplot2` library has already been loaded for you. Plot `volcano_data` using the `ggplot()` and `geom_point()` functions, as we did in the lecture supplement. Save the plot to a variable named "volcano_plot".
+
+```{r}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Tutorial.W12.2.3.f.R")
+```
+**Check your answer by running the above block** 
+
+Now we are going to highlight all of our differentially expressed genes on the volcano plot. Create a new column in `volcano_data` called `deGene` and fill it with `FALSE` values.
+
+```{r}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Tutorial.W12.2.3.g.R")
+```
+**Check your answer by running the above block** 
+
+If a gene appears in the list of differentially expressed genes (`et_dge_names`), change the `FALSE` value in `volcano_data$deGene` to `TRUE`.
+
+```{r}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Tutorial.W12.2.3.h.R")
+```
+**Check your answer by running the above block** 
+
+Now plot the `volcano_data`, colouring the points by `deGene`. Save the plot to a variable named "volcano_de".
+
+```{r}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Tutorial.W12.2.3.i.R")
+```
+**Check your answer by running the above block** 
+
+Note that it looks like there are hardly any red/orange points on this plot. This is because there are many points plotted in a very small space. We can check how many of these values there are by summing the number of `FALSE` values in `volcano_data$deGene`. Calculate this number and save it to a variable named "num_false".
+
+```{r}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Tutorial.W12.2.3.j.R")
+```
+**Check your answer by running the above block** 
+
+Do the same thing, but counting the number of `TRUE` values. Save this to a variable named "num_true".
+
+```{r}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Tutorial.W12.2.3.k.R")
+```
+**Check your answer by running the above block** 
+
+---
+
+## 12.2.4 Visualization: Heat Maps
+
+---
+
+Now let's visualize our top tags on a heat map. First, calculate the log counts per million for `normalized_dge` and save your result to a variable named "log_cpm". You can specify to take the log of the counts by setting `log = TRUE` in the `cpm()` function.
+
+```{r}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Tutorial.W12.2.4.a.R")
+```
+**Check your answer by running the above block** 
+
+Isolate our top tags from the `log_cpm` result by using the row names from `tags_et` to extract the values from the `log_cpm` result. Save your result to a variable named "log_cpm_tags_et".
+
+```{r}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Tutorial.W12.2.4.b.R")
+```
+**Check your answer by running the above block** 
+
+Use `dim()` to check the dimensions of `log_cpm_tags_et` and save your result to a variable named "dimensions_tags_cpm". Does the number of rows match the number of tags that you would expect? Remember that we were looking at the top 100 DE genes.
+
+```{r}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Tutorial.W12.2.4.c.R")
+```
+**Check your answer by running the above block** 
+
+The `pheatmap` package has already been loaded for you. Use the `pheatmap()` function to create a heat map with the following requirements:
+- Your first argument is `log_cpm_tags_et`
+- Scale by row
+- Retain the order of the samples in the heat map
+- Use row font size `5` and column font size `13` with a column text angle of `0`
+Save your heat map to a variable named "tags_heatmap". 
+
+The row names might make it hard to see the labels. You can type the plot variable name into the console/command-line section of RStudio (i.e., not in this notebook), press enter, and then press the Zoom button to interpret the gene names.
+
+```{r, fig.height = 20}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Tutorial.W12.1.4.d.R")
+```
+**Check your answer by running the above block** 
+
+---

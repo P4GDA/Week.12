@@ -1,0 +1,221 @@
+---
+title: "12.2 Differential Expression Testing"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, error = TRUE, warning = TRUE)
+```
+
+---
+
+## 12.2.1 Introduction to Differential Expression Testing
+
+---
+
+Earlier this week, we explored how to prepare an RNA-seq count matrix for *differential gene expression testing*. This involved filtering out genes with low reads, and normalizing the read counts.
+
+We will continue working with the `DGEList` object that we made in the last lecture supplement. Let's start by loading the `edgeR` library:
+
+```{r}
+library(edgeR)
+```
+
+Now let's read in the `DGEList` object we created and saved in Supplement 12.1 with the `readRDS()` function:
+
+```{r}
+filtered_example_dge <- readRDS("/home/jovyan/Week.12/12.1.Processing.RNA-sequencing.Data/filtered_example_dge.RDS")
+```
+
+It's time to do some differential gene expression testing! So what is this, exactly?
+
+Differentially expressed genes are genes that are expressed more in one sample or category/group of samples than another. These genes can be *upregulated* in a given condition (i.e., have greater expression levels) or *downregulated* (i.e., have reduced expression levels). A gene that is regulated differently in different conditions (healthy vs disease, treated with a drug vs no treatment, etc.) can indicate what is driving these different cellular phenotypes.
+
+For every gene, we have to ask the question "is the expression of this gene significantly different between samples?". Therefore, we're testing a separate hypothesis for each gene. Repeating this process for many genes is an example of *multiple hypothesis testing*. When so many hypotheses are being tested, some results may appear to be significant due to chance alone. For example, if you test genes at a p-value of 0.05, you expect 5% of the "significant" hits to be incorrect. This may not seem like many, but when you're examining almost 20,000 genes it can add up add up quickly. For this reason, statistical corrections exist for when we're performing multiple hypothesis testing. These methods reduce the significance level of each interaction so that hopefully only true biological relationships remain significant.
+
+---
+
+## 12.2.2 Calculating Differentially Expressed Genes
+
+---
+
+The first step to differential expression testing is to estimate the *dispersion level* of each gene. Dispersion is essentially the variance of expression associated with each gene. Larger dispersion levels across samples within the same group often reduce the possibility for true variance to be detected. In our case, this would mean that if a gene varied a lot in expression among the tumour samples, variance between the tumour and normal samples would be less significant.
+
+We can easily calculate dispersion in `edgeR`. Notice that the the `DGEList` object has been populated with some new information. You don't need to worry about what the different types of dispersion mean - just know that `edgeR` takes these values into account when doing differential expression testing.
+
+```{r}
+filtered_example_dge <- estimateDisp(filtered_example_dge)
+filtered_example_dge
+```
+
+Now we are going to find our differentially expressed genes. We can tell `edgeR` that we are interested in comparing our tumour and normal data using the `exactTest()` function.
+
+```{r}
+example_et <- exactTest(filtered_example_dge, pair = c("normal","tumour"))
+example_et
+```
+
+You can see that the result of this exact test is a data frame of very useful information. In the first column is `logFC` which stands for *log-fold change*. Fold change is the ratio of gene expression between two groups, and it is often presented on a log scale. If we compare this to the original count matrix...
+
+```{r}
+head(filtered_example_dge$counts)
+```
+
+...we can see that the results are from the perspective of the tumour tissue. In other words, positive log-fold change values indicate that the gene is enriched in tumour samples. If we were to switch the order of tumour and normal...
+
+```{r}
+example_et2 <- exactTest(filtered_example_dge, pair = c("tumour","normal"))
+head(example_et2)
+```
+
+...the positive and negative signs have switched, and now we are looking at everything from the perspective of normal tissue.
+
+If we go back to `example_et` and look at the next column we have `logCPM`. This is the average log of counts per million for each gene. We can ignore this for differential expression testing.
+
+The final column is `PValue`, which are the p-values that have been calculated from the exact test that has compared the expression of every gene across samples. The *p-value* can be used as a threshold to determine if gene expression patterns are *significantly different* in one group compared to another. These patterns are often considered to be significantly different if the p-value is lower than 0.05. Note that these p-values have not yet been corrected for multiple comparisons.
+
+```{r}
+# Isolate all rows with a p-value of less than 0.05
+example_et[example_et$table$PValue < 0.05,]
+```
+
+Check how many of the p-values are significant:
+
+```{r}
+sum(example_et$table$PValue < 0.05)
+```
+
+We can now feed the results from the exact test (saved as the variable `example_et`) into the `topTags()` function, which extracts the top differentially expressed genes based on how we set the argument `n`. By default, these are ranked by the original p-value, and a new `FDR` value is calculated. The `FDR` value stands for *false discovery rate* and is the p-value that has been corrected for multiple comparisons. The FDR value is the number we should be looking at, since it takes into account the fact that we have been doing thousands of tests, and some of the results are going to appear significant due to chance alone.
+
+```{r}
+example_tags <- topTags(example_et, n = 10) # Returns the top 10 differentially expressed genes
+example_tags
+```
+
+Check the number of significant FDR values. In this case, it looks like all of the FDR values are significant for the top 10 genes we isolated.
+
+```{r}
+sum(example_tags$table$FDR < 0.05)
+```
+
+We can also find *ALL* of our significantly differentially expressed genes across samples using the function `decideTestsDGE()`. Here we can specify that we want to adjust for multiple comparisons which will hopefully exclude most of the genes that may be differentially expressed due to chance (i.e., there is a difference across samples, but it is not very significant).
+
+```{r}
+de_genes <- decideTestsDGE(example_et, adjust.method = "fdr", p = 0.05)
+# Take a look at the first few rows of the results
+# Notice that the first few rows are all 0s; alternative values are -1 and 1
+# These values are what categorizes whether or not a gene is a DE gene or not
+head(de_genes)
+nrow(de_genes)
+```
+
+The direct results of this test can be difficult to interpret at first glance. Negative one indicates a downregulated gene whereas positive one indicates an upregulated gene, and zero indicates that the gene is not significantly differentially expressed. We can isolate the names of the genes from the non-zero values and use this to determine which genes are significantly differentially expressed. This vector of gene names, `de_genes`, can be used to filter the results from other statistical tests so that we're just looking at our DE genes.
+
+```{r}
+de_genes <- rownames(example_et)[as.logical(de_genes)]
+# How many genes are there?
+length(de_genes)
+```
+
+Why did the number of differentially expressed genes decrease to `594` from our original value of `704` which we found by looking at the results of the "exact test"?
+
+---
+
+## 12.2.3 Visualization: Smear Plots & Volcano Plots
+
+---
+
+There are many ways we can visualize the results of our differential gene expression tests. One way is to plot the log-fold changes of the genes on a scatter plot. In this type of plot, the differentially expressed genes are often coloured differently to show where they are located on the plot. The genes above zero have a high, positive log-fold change and are therefore overexpressed in tumour samples, whereas the genes with the negative log-fold changes indicate underexpression in tumour samples. Along the x-axis is the log "counts per million" value, which means that genes plotted on the right have overall higher expression than those plotted on the left. Smear plots are often used as a diagnostic plot for RNA-sequecing data.
+
+```{r}
+# Plot
+plotSmear(example_et, de.tags = de_genes)
+abline(h = c(-1, 1), col = 2) # Horizontal lines at 1 & -1
+```
+
+*Volcano plots* are another very useful way to examine differential gene expression between two groups. We will be making volcano plots with `ggplot2`.
+
+```{r}
+library(ggplot2)
+```
+
+To make a volcano plot, we can subset our previously created variable `example_et` to extract the p-values and log-fold changes associated with each gene across both groups. The volcano plot will compare these two values in each group, and allow us to easily see the genes with the biggest differences in log-fold change and p-value.
+
+First, let's prepare the data we will use and save it to a variable named "volcano_data". Notice that instead of using the p-value directly, we are taking the negative log of it because it helps us see the differences in p-values more clearly along an axis (rather than trying to stare very hard at very small differences between very low numbers). Once the negative log has been taken, higher numbers represent more significant p-values.
+
+```{r}
+# Create the data from example_et
+volcano_data <- as.data.frame(cbind(example_et$table$logFC,
+                                   -log10(example_et$table$PValue)))
+# Add column names
+colnames(volcano_data) <- c("logFC", "negLogPval")
+# Extract the row names (gene names) from example_et and add them to volcano_data
+rownames(volcano_data) <- rownames(example_et$table)
+# Plot the data
+ggplot(volcano_data, aes(logFC, negLogPval)) +
+  geom_point()
+```
+
+Right now this isn't very informative as it's hard to tell which genes are where. Along the bottom we have log-fold change values (higher values being overexpressed in tumour samples and lower values being underexpressed). Along the y-axis is the negative log of the p-values, which tells us that genes plotted higher have more significantly different expression levels.
+
+We can create a TRUE/FALSE vector to help us identify interesting features on these plots. Often this means colouring the points (or even labeling individual points) to see where certain genes are on the plot, or to see which genes have passed a certain threshold. For example, we can look and see which genes in `volcano_data` are in our differentially expressed gene list, `de_genes`. We can then colour the points by this vector:
+
+```{r}
+# Add a column in volcano_data called "deGene"
+# Fill this column with FALSE values
+volcano_data$deGene <- FALSE
+# Make deGene TRUE whenever one of the gene names/row names
+# of volcano_data is in the de_genes list
+volcano_data$deGene[rownames(volcano_data) %in% de_genes] <- TRUE 
+# Plot the volcano_data, adding colouring by the deGene category
+ggplot(volcano_data, aes(logFC, negLogPval, colour = deGene)) + geom_point()
+```
+
+---
+
+## 12.2.4 Visualization: Heat Maps
+
+---
+
+Another very popular way to visualize gene expression is through a heat map of expression values. We'll use log counts per million as our expression values, since these take into account the differences in library size for each gene (or different total count values for each gene - remember we discussed this in the *normalization* section).
+
+We need to recalculate log counts per million because (1) we no longer have the variable saved from the last lecture supplement if this is a new R session and (2) the overall library size has changed since using CPM to filter out genes from the `DGEList` object.
+
+```{r}
+# prior.count adds 2 to each observation to avoid taking the log of 0
+logcpm <- cpm(filtered_example_dge, log = TRUE,
+              prior.count = 2)
+# How many genes are these?
+nrow(logcpm)
+```
+
+From our log counts per million, we're only going to keep our DE genes that we isolated before, because these are what we are interested in looking at.
+
+```{r}
+# Only keep DE genes from above
+logcpm_de <- logcpm[row.names(logcpm) %in% de_genes,]
+# How many genes now?
+nrow(logcpm_de)
+```
+
+Now let's make the heat map using the `pheatmap` package. If you want a quick review of heat maps, you can go back and take a look at section 4.2.3 in the week 4 material. Let's load the package now:
+
+```{r}
+library(pheatmap)
+```
+
+The `pheatmap()` function plots the scaled log counts per million of all the differentially expressed genes. We use the argument `scale = row` to scale the CPM values by row to emphasize the differences in gene expression for each gene across the samples. Notice the clear relationships between the two groups.
+
+```{r}
+pheatmap(logcpm_de, scale = "row")
+```
+One other thing you might notice is that the height of the rows of the heat map are very tiny, squishing out many of the gene names, making the heat map difficult to interpret. To avoid this, we can both look at only a subset of rows of genes at a time, as well as shrink the row font size using `fontsize_row`. We can also change the font size and angle of the column names. To not cluster the columns, we can set `cluster_cols = FALSE`. This ensures that the order of the columns doesn't change, which keeps our normal samples on the left and tumour samples on the right:
+
+```{r}
+pheatmap(logcpm_de[1:50,], scale = "row" , cluster_cols = FALSE,
+         fontsize_row = 5, fontsize_col = 10, angle_col = 0)
+```
+
+Congratulations on completing your analysis of this dataset!
+
+---

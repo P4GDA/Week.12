@@ -1,0 +1,207 @@
+---
+title: "12.1 Processing RNA-sequencing Data"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, error = TRUE, warning = TRUE)
+```
+
+---
+
+## 12.1.1 EdgeR and DGEList Objects
+
+---
+
+Earlier we created a *count matrix* that stores gene expression data across samples. As we learned, a count matrix is a two-dimensional gene-by-sample matrix, that communicates the number of counts for each gene across all samples. Each numerical value is a raw count that translates to the number of reads which aligned to a particular gene in a sample.
+
+As a reminder, this count matrix consists of six samples from three individuals who were diagnosed with esophageal squamous cell carcinoma (ESCC). The first three columns in the count matrix are samples `16N`,`18N`, and `19N`, which are normal tissue adjacent to the tumour region. The last three columns are samples `16T`, `18T`, and `19T`, which are from the tumour tissue from the same individuals in the same order (e.g. `16N` and `16T` are from the same patient with the "N" and "T" indicating "Normal" and "Tumour" respectively). This experimental design and the data that were used is further described in the following paper: 
+
+Ma, S. et al. (2012) *Identification of PTK6, via RNA Sequencing Analysis, as a Suppressor of Esophageal Squamous Cell Carcinoma*, Gastroenterology, 143 (3) 675-686. 
+
+Our analysis will use these data to practice looking for genes that are expressed differently across normal and tumour tissue. These genes may be linked to cancer or potentially targeted with therapeutics.
+
+For now, we are going to be looking at a subset of this count matrix - specifically, the first 3000 genes that appear in the matrix. The samples are the columns and the genes are the rows.
+
+First, we need to read the matrix into R. Note that `header = TRUE` because of the sample names that are stored in the TSV file; `sep = "\t"` indicates that the file is tab delimited or TSV; `row.names = 1` says that our first column is actually row names instead of values which is true because these are the gene names. `smallCountMatrix.tsv` is the name of the file with the matrix subset of 3000 genes.
+
+```{r}
+example_matrix <- read.table("/home/jovyan/Week.12/12.1.Processing.RNA-sequencing.Data/smallCountMatrix.tsv",
+                            header = TRUE,
+                            sep = "\t",
+                            row.names = 1)
+```
+
+Multiple packages exist that are able to manipulate and analyse RNA-seq count matrices. We will be using `edgeR`, which we will now load:
+
+```{r}
+library(edgeR)
+```
+
+Whatever count matrix we would like to use now needs to be converted to the type of object used by `edgeR`. Custom objects are often useful for specific packages to have associated with them, because they can be manipulated in ways that are very specific to that data type. The `edgeR` package stores information in an object called *DGEList*.
+
+A DGEList object is similar to a list, and is easily manipulated by regular R code that can edit lists. This is very helpful if you ever have very specific modifications that you want to make to your data that are not typically done using EdgeR tools.
+
+Let's make one of these objects using our small example matrix of 3000 genes from earlier. We are going to specify the groups for the samples in order: three normal then three tumour. When we print the object to the command line, we can see that the raw count matrix and information about each sample have been stored in different locations within the object.
+
+```{r}
+example_dge <- DGEList(counts = example_matrix,
+                       group = c("normal", "normal", "normal", 
+                                 "tumour", "tumour", "tumour")) 
+example_dge
+```
+
+See how the information is stored as a list in the first `R Console` output above (you might be seeing the `data.frame` output currently)? `edgeR` automatically processes the information from the count matrix and puts the count and sample information in the right spots. Let's confirm this is indeed a list:
+
+```{r}
+typeof(example_dge)
+```
+
+You may have also noticed that the sample names all have an "X" in front of them. This is because `edgeR` doesn't like sample names beginning with numbers. We can change the names by replacing the column names of `example_dge$counts` and `example_dge$samples`.
+
+```{r}
+colnames(example_dge$counts) <- c("16N", "18N", "19N", "16T", "18T", "19T")
+row.names(example_dge$samples) <- c("16N", "18N", "19N", "16T", "18T", "19T")
+```
+
+We can access the information stored in the DGEList object in different ways, which we covered in the Lists module (4.3).
+
+Access the raw counts:
+
+```{r}
+head(example_dge$counts)
+# OR using indexing
+head(example_dge[[1]])
+```
+
+Access the sample information:
+
+```{r}
+example_dge$samples
+# OR using indexing
+example_dge[[2]]
+```
+
+From looking at the objects above, we can see that the counts slot is familiar to us, but the samples slot holds some new information. For each sample, we see `group`, `lib.size`, and `norm.factors`.
+
+The `group` column represents a category of sample, such as the normal and tumour samples that we are looking at. This column keeps track of which sample belongs to which group.
+
+Note: This column is filled out because we used the `group` argument when creating our DGEList object. If we forgot to specify the groups then, all of the samples would have a value of 1, meaning `edgeR` thinks all the samples belong to the same group. We can add or update the group information after creating out DGEList object by providing the group labels as a character vector and nesting it within the `as.factor()` function, and assigning this to the `group` column in the `samples` data frame element of our object:
+
+    example_dge$samples$group <- as.factor(c("normal", "normal", "normal", "tumour", "tumour", "tumour"))
+
+The `as.factor()` function and factors in general are beyond the scope of this course, but essentially it is a way of classifying data into distinct groups. For our purposes it is much easier to specify the group labels of our samples when creating the DGEList object from the start.
+
+The `lib.size` column is the total library size for each sample, which is the total number of counts. We could manually calculate this:
+
+```{r}
+# Calculate the sum of counts for the first column in the count matrix
+sum(example_dge$counts[,1])
+```
+
+The `norm.factors` column is populated with scaling factors that indicate how raw gene counts should be modified after normalization is complete. We'll get to normalization later on in this supplement.
+
+---
+
+## 12.1.2 Filtering Genes
+
+---
+
+Before we can do any useful analysis on our RNA-sequencing data, we need to do some correction for error and normalization. This is generally because RNA-sequencing experiments are not perfect, and do not measure and record 100% of the transcripts that have been produced by a cell. This causes a few major problems:
+
+1. A low read count or count of 0 may be a false *technical* low or zero value (i.e. the transcript exists in a sample but is not detected and sequenced) OR it may represent a true *biological* zero (the transcript does not exist in a sample because the gene is not transcribed in the tissue).
+
+2. Detected reads may vary across samples due to sample quality. This includes library size. For example, if one sample has double the reads of another, the read numbers cannot be directly compared.
+
+There are multiple ways to try to correct these errors or improve confidence on the signals that one is getting from RNA-seq data. We will go through some of these different strategies.
+
+The first is to require that genes exist across a *minimum number of samples* and have a *minimum expression value*. If genes don't exist across samples, it can't tell us anything about how the expression of the gene changed between groups. Having a minimum expression value is useful because it helps remove unimportant genes or inaccurate measurements from our multiple comparison tests between genes. This addresses problem #1.
+
+Expression values can be measured in *counts per million*, which is essentially a way of adjusting the counts to take library size into account (addressing problem #2). `edgeR` comes with a function that can calculate this for us. It will change the raw counts to values that are proportional to the total library size of the sample. These values create a new, relative expression matrix that we will store in a variable named `counts_per_million`.
+
+```{r}
+# Calculate the counts per million reads
+counts_per_million <- cpm(example_dge)
+head(counts_per_million)
+```
+
+If we wanted to get rid of a bunch of genes that didn't pass a certain count threshold, now would be the time to do it. For example, you could keep all genes that had greater than 1 count per million. This addresses problem #1, as we are getting rid of genes that may have been transcribed but just not detected by the RNA-seq technology.
+
+```{r}
+# Look to see which CPM values are greater than 1
+# Creates TRUE or FALSE values for whichever genes pass that threshold across samples
+count_check <- counts_per_million > 1
+head(count_check)
+```
+
+Now we could choose to keep only the genes that have passed this threshold across at least two out of six samples:
+
+```{r}
+keep_rows <- which(rowSums(count_check) >= 2)
+# Let's look at a few of these genes
+head(keep_rows)
+```
+
+One count per million is the same as a count of one in a sample that has a library size of one million. We can check the library size of one of the samples in our DGEList object by taking the sum of the sample column of the count matrix - let's look at 16N:
+
+```{r}
+sum(example_dge$counts[,"16N"])
+```
+
+Because our total library size is a little over 5.5 million, this means that this sample would not pass our threshold for a certain gene if the counts were less than 6. You wouldn't want to have this threshold across ALL samples, as then you may cut out genes that have high expression in one group, but low expression in another.
+
+Check how many genes we are keeping:
+
+```{r}
+# Check to see how many genes this is
+length(keep_rows)
+```
+
+How does this differ to the original number of genes?
+
+```{r}
+nrow(example_dge)
+```
+
+We can see that our original number of genes was 3000 while we are now left with 1589. This means that just under half of all genes would not have been helpful in our analysis.
+
+Let's filter our DGEList object to keep this new smaller set of genes. We do this by indexing the rows using the `keep_rows` variable:
+
+```{r}
+filtered_example_dge <- example_dge[keep_rows,]
+```
+
+We can check out the new counts per million values with the `summary()` function, which will tell us the distribution of reads in terms of their counts per million (CPM) values for each sample:
+
+```{r}
+# We can check out the new counts per million values
+summary(cpm(filtered_example_dge))
+```
+
+You can see that the mean for each sample is the same: `629`. This makes sense, because one of the goals of the counts per million calculation is to adjust for differences in library size across samples.
+
+Now we have a new, filtered object that we can use - but we're not quite ready to test and see how gene expression differs between groups. Genes that have significant differential expression levels are called *differentially expressed* genes. Before we can do these tests, we must normalize the gene expression values.
+
+---
+
+## 12.1.3 EdgeR Normalization
+
+---
+
+Normalization accounts for *technical noise* and allows for more accurate comparisons between samples. In other words, this adjustment should highlight true biological differences and help obscure unimportant batch effects. As with the counts per million calculation you did earlier, `edgeR` normalization also accounts for library size. However, the results can be used for differential expression testing. With `edgeR` normalization, different models can be used to specify different assumptions that you are making for your sample (e.g. whether or not you expect most genes to be differentially expressed across groups).
+
+To to perform normalization in `edgeR`, we apply the `calcNormFactors()` function which calculates a *scaling factor* used to compute *effective library sizes*. The scaling factor is used in all downstream analysis. Notice that when we apply this, it updates the `norm.factors` column with different values (previously the column was all `1`).
+
+```{r}
+filtered_example_dge <- calcNormFactors(filtered_example_dge) 
+filtered_example_dge
+```
+
+Now we have a filtered and normalized RNA-seq object that can be used in downstream analyses to calculate differential gene expression. We can save our object now with the `saveRDS()` function, which saves an R object that we can use in a subsequent session without having to rerun all of the steps we did to generate the object. This will allow us to pick up from exactly where we left off in the next module.
+
+```{r}
+saveRDS(filtered_example_dge, 
+        file = "/home/jovyan/Week.12/12.1.Processing.RNA-sequencing.Data/filtered_example_dge.RDS")
+```
+
+---

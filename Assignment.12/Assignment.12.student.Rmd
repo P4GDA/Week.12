@@ -1,0 +1,485 @@
+---
+title: "Assignment 12"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, error = TRUE, warning = TRUE)
+
+library(ottr)
+library(testthat)
+library(edgeR)
+library(ggplot2)
+```
+**Run the above block to load required packages**
+
+---
+
+## Overview
+
+---
+
+This assignment covers the content in week 12 lectures and tutorials.
+
+#### Mark breakdown
+- Question 1 (2 marks)
+- Question 2 (4 marks)
+- Question 3 (9 marks)
+- Question 4 (5 marks)
+- Question 5 (4 marks)
+- Question 6 (4 marks)
+
+---
+
+## Background
+
+---
+
+In this week's tutorial, you analyzed RNA-seq data comparing human esophageal squamous cell carcinoma (ESCC) tumour tissue and the healthy adjacent tissue from the same individual. We will be coming back to this dataset for this assignment. In the paper that described these data (Ma, S. et al. (2012) *Identification of PTK6, via RNA Sequencing Analysis, as a Suppressor of Esophageal Squamous Cell Carcinoma*, Gastroenterology, 143 (3) 675-686), certain genes were identified as being differentially expressed. You are going to look closer at some of these genes and try out some other analytical techniques. Remember that the software used in the paper is not the same as the software we are using today, so the results are not expected to be exactly the same as what was found in the paper.
+
+---
+
+## QUESTIONS
+
+---
+
+### Question 1 
+
+#### a.
+(1 mark)
+Make sure you have `edgeR` loaded by running the code block at the top of the assignment. Now read in the count matrix and create the DGEList object as was done in the tutorial, so that you end up with a `DGEList` object. Save this object to a variable named "dge_matrix". Make sure you include the `group` argument, categorizing samples as *tumour* or *normal*. Label the samples 16N, 18N, 19N, 16T, 18T, 19T.
+
+```{r Assignment.W12.1.a}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Assignment.W12.1.a.R")
+```
+**IGNORE the above block: test results will not appear in assignments** 
+
+#### b.
+(1 mark)
+The authors of the paper identified the upregulation and downregulation of specific genes. Get the row of raw counts for the gene PTK6 from `dge_matrix` and save it to a variable named "PTK6_counts".
+
+```{r Assignment.W12.1.b}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Assignment.W12.1.b.R")
+```
+**IGNORE the above block: test results will not appear in assignments** 
+
+---
+
+### Question 2
+
+Using the raw counts accessed from `dge_matrix`, you will calculate the mean number of counts across both tumour and normal samples for the following genes: PTK6, RHOC, MET, SPRR3, UPK1A. 
+
+#### a.
+(1 mark)
+Save the values of mean expression for NORMAL samples in an unnamed vector called "normal_counts" in the same order as the genes listed above.
+
+```{r Assignment.W12.2.a}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Assignment.W12.2.a.R")
+```
+**IGNORE the above block: test results will not appear in assignments** 
+
+#### b.
+(1 mark)
+Save the values of mean expression for TUMOUR samples in an unnamed vector named "tumour_counts" in the same order as the genes listed above.
+
+```{r Assignment.W12.2.b}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Assignment.W12.2.b.R")
+```
+**IGNORE the above block: test results will not appear in assignments** 
+
+#### c.
+(1 mark)
+Which of these genes are over-expressed in tumour samples? Save these gene names in an unnamed vector called "over_expressed" in the same order as the genes listed above (i.e. excluding those that are under-expressed).
+
+```{r Assignment.W12.2.c}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Assignment.W12.2.c.R")
+```
+**IGNORE the above block: test results will not appear in assignments** 
+
+#### d.
+(1 mark)
+Which of these genes are under-expressed in tumour samples? Save these gene names in an unnamed vector called "under_expressed" in the same order as the genes listed above (i.e. excluding those that are over-expressed).
+
+```{r Assignment.W12.2.d}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Assignment.W12.2.d.R")
+```
+**IGNORE the above block: test results will not appear in assignments** 
+
+---
+
+### Question 3
+
+#### a.
+(1 mark)
+Calculate the counts per million as you did in tutorial 12 and save it as a variable named "counts_per_million". The variable will be a matrix of values following the same format as the count matrix. You will be able to complete the following questions using just this variable.
+
+```{r Assignment.W12.3.a}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Assignment.W12.3.a.R")
+```
+**IGNORE the above block: test results will not appear in assignments** 
+
+#### b.
+(1 mark)
+Calculate the average counts per million values across tumour samples for each gene, creating a named vector with one value per gene. The element names should be the name of the gene. Save your result to a variable named "tumour_CPM". 
+Hint: use the `rowSums()` function or a for loop.
+
+```{r Assignment.W12.3.b}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Assignment.W12.3.b.R")
+```
+**IGNORE the above block: test results will not appear in assignments** 
+
+#### c.
+(1 mark)
+Calculate the average counts per million values across normal samples. Save this to a variable named "normal_CPM". Each element should have a name (the name of the gene).
+
+```{r Assignment.W12.3.c}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Assignment.W12.3.c.R")
+```
+**IGNORE the above block: test results will not appear in assignments** 
+
+#### d.
+(1 mark)
+Create a vector of differences in counts per million using the vectors you created in question 3.b and 3.c. Call this vector "diff_CPM". Genes expressed higher in tumour samples should be positive values.
+
+```{r Assignment.W12.3.d}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Assignment.W12.3.d.R")
+```
+**IGNORE the above block: test results will not appear in assignments** 
+
+#### e.
+(1 mark)
+Using your `diff_CPM` vector, find the name of the gene that is the most over-expressed in tumour samples (i.e. the largest positive value). Save the name of this gene to a variable named "overexpressed_gene".
+
+```{r Assignment.W12.3.e}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Assignment.W12.3.e.R")
+```
+**IGNORE the above block: test results will not appear in assignments** 
+
+#### f.
+(1 mark)
+What is the difference in average CPM for the gene in question 3.e? Save your answer to a variable named "overexpressed_cpm".
+
+```{r Assignment.W12.3.f}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Assignment.W12.3.f.R")
+```
+**IGNORE the above block: test results will not appear in assignments** 
+
+#### g.
+(1 mark)
+Using your `diff_CPM` vector, find the name of the gene that is the most under-expressed in tumour samples (i.e. the most negative value). Save the name of this gene to a variable named "underexpressed_gene".
+
+```{r Assignment.W12.3.g}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Assignment.W12.3.g.R")
+```
+**IGNORE the above block: test results will not appear in assignments** 
+
+#### h.
+(1 mark)
+What is the difference in average CPM for the gene in question 3.g? Save your answer to a variable named "underexpressed_cpm".
+
+```{r Assignment.W12.3.h}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Assignment.W12.3.h.R")
+```
+**IGNORE the above block: test results will not appear in assignments** 
+
+#### i.
+(1 mark)
+Let's say a gene has a CPM value of 1000. What percentage of reads are being expressed from that gene alone compared to the entire library size? Remember that the CPM calculation converts raw counts to a proportional value of expressed genes for the given library size. Save the proportion as a number rounded to three decimal places (e.g. 1% would be `0.010`) to a variable named "proportion_1000_cpm".
+
+```{r Assignment.W12.3.i}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Assignment.W12.3.i.R")
+```
+**IGNORE the above block: test results will not appear in assignments** 
+
+---
+
+### Question 4
+
+#### a.
+(1 mark)
+Now that you have your CPM values, perform the following steps as you did in the Week 12 tutorial:
+- Filter the sample (i.e. keep values that have a CPM value greater than 1 across at least 2 samples) and save this filtered object to a variable named "dge_matrix_cpm".
+- Perform normalization on `dge_matrix_cpm` and save this to a variable named "normalized_dge". 
+- Calculate the dispersion of `normalized_dge` using the `estimateDisp()` function, overwriting the `normalized_dge` object with your results.
+- Use the `exactTest()` function and the `pair` argument (specifying `normal` THEN `tumour`) on your updated `normalized_dge` object and save the results to a variable named "et_results".
+
+*You have done all of this already in the tutorial and you can use the code from there.*
+
+```{r Assignment.W12.4.a}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Assignment.W12.4.a.R")
+```
+**IGNORE the above block: test results will not appear in assignments** 
+
+The `exactTest()` function compares the two different phenotypes, normal and tumour, without considering the fact that these are paired samples. However, in this experimental design, the numbers of the samples indicate which individual the sample originated from. This can help get rid of some of the individual variation that would be occurring if these samples were NOT paired. We can use this extra information by doing a different type of differential expression testing. To do this, we need to create a "design matrix" of our samples, and fit different statistical models to the reads. The code to do this is as follows:
+
+```{r}
+# Categorize the samples by type
+sample_type <- c("N", "N", "N", "T", "T", "T")
+# Specify which samples are replicates
+sample_replicate <- c("S1", "S2", "S3", "S1", "S2", "S3")
+# Use this information to create the design matrix
+design_mat <- model.matrix(~sample_replicate + sample_type)
+# Look at the design matrix
+print(design_mat)
+```
+
+#### b.
+(1 mark)
+Use the `glmFit()` function to fit a negative binomial generalized log-linear model to the read counts for each gene. This is an alternative to the `exactTest()` function, and is a popular method to use on paired RNA-seq data. This test compares the tumour and normal samples for each patient separately so that baseline differences between the patients are subtracted out. The only arguments needed for this are your `normalized_dge` object and your design matrix `design_mat`. Save the output of the `glmFit()` function to a variable named "glm_fit".
+
+```{r Assignment.W12.4.b}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Assignment.W12.4.b.R")
+```
+**IGNORE the above block: test results will not appear in assignments** 
+
+#### c.
+(1 mark)
+Use the `glmLRT()` function to conduct likelihood ratio tests for coefficients in a linear model. The only argument for this is your `glm_fit` variable that you made in question 4.b. Save the output of the `glmLRT()` function to a variable named "glm_lrt".
+
+```{r Assignment.W12.4.c}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Assignment.W12.4.c.R")
+```
+**IGNORE the above block: test results will not appear in assignments** 
+
+#### d.
+(1 mark)
+Use the `topTags()` function to get the top 500 differentially expressed genes from the results of your exact test (`et_results`). Save the output to a variable named `tags_et`.
+
+```{r Assignment.W12.4.d}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Assignment.W12.4.d.R")
+```
+**IGNORE the above block: test results will not appear in assignments** 
+
+#### e.
+(1 mark)
+Use the `topTags()` function to get the top 500 differentially expressed genes from the results of the GLM model (`glm_lrt`). Save the output to a variable named `tags_glm`.
+
+```{r Assignment.W12.4.e}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Assignment.W12.4.e.R")
+```
+**IGNORE the above block: test results will not appear in assignments** 
+
+---
+
+### Question 5
+
+#### a.
+(1 mark)
+Find the genes that were in the top 500 for the exact test but NOT for the GLM model and save the output to a vector named "only_et_genes". 
+Hint: Use the `%in%` operator.
+
+```{r Assignment.W12.5.a}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Assignment.W12.5.a.R")
+```
+**IGNORE the above block: test results will not appear in assignments** 
+
+#### b.
+(1 mark)
+Find the genes that were in the top 500 for the GLM model but NOT for the exact test and save the output to a vector named "only_glm_genes".
+
+```{r Assignment.W12.5.b}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Assignment.W12.5.b.R")
+```
+**IGNORE the above block: test results will not appear in assignments** 
+
+#### c.
+(1 mark)
+What are the FDR values for genes PTK6, MET, SPRR3, and UPK1A in `tags_et`? Create an unnamed vector called "gene_et_FDRs" that contains the FDR values in the same order that the genes are listed.
+
+```{r Assignment.W12.5.c}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Assignment.W12.5.c.R")
+```
+**IGNORE the above block: test results will not appear in assignments** 
+
+#### d.
+(1 mark)
+What are the FDR values for genes PTK6, MET, SPRR3, and UPK1A in `tags_glm`? Create an unnamed vector called "gene_glm_FDRs" that contains the FDR values in the same order that the genes are listed.
+
+```{r Assignment.W12.5.d}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Assignment.W12.5.d.R")
+```
+**IGNORE the above block: test results will not appear in assignments** 
+
+---
+
+### Question 6
+
+#### a.
+(1 mark)
+Create a data frame called "volcano_et" by binding together the `logFC` and the negative log 10 transformation of the `FDR` column values from `tags_et`. Label the columns as `logFC` and `negLogFDR`. Label the rows using the row names from `tags_et`.
+Hint: You will need to use the `as.data.frame()` function.
+
+```{r Assignment.W12.6.a}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Assignment.W12.6.a.R")
+```
+**IGNORE the above block: test results will not appear in assignments** 
+
+#### b.
+(1 mark)
+Plot the volcano data using the `ggplot()` and `geom_point()` functions. Add a column called `interestingGenes` and create `FALSE` values for all genes except *PTK6, MET, SPRR3, and UPK1A* which should have `TRUE` values. Colour the points by this column. Save your plot as a variable named `volcano_et_interesting_genes`. The `ggplot2` library has already been loaded for you.
+
+```{r Assignment.W12.6.b}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Assignment.W12.6.b.R")
+```
+**IGNORE the above block: test results will not appear in assignments** 
+
+#### c.
+(1 mark)
+Using the same methods as in question 6.a, create a data frame called "volcano_glm" for the GLM data (`tags_glm`). Be sure to rename the rows and columns appropriately.
+
+```{r Assignment.W12.6.c}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Assignment.W12.6.c.R")
+```
+**IGNORE the above block: test results will not appear in assignments** 
+
+#### d.
+(1 marks)
+Following the same criteria as listed question 6.b, create a volcano plot using the `volcano_glm` data. Save this plot to a varible called "volcano_glm_interesting_genes".
+
+```{r Assignment.W12.6.d}
+# Write and execute your code here
+
+```
+
+```{r}
+. = ottr::check("tests/Assignment.W12.6.d.R")
+```
+
+**IGNORE the above block: test results will not appear in assignments** 
+
+---
